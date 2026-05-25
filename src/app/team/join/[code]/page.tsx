@@ -89,9 +89,9 @@ export default function JoinTeamPage({ params }: { params: Promise<{ code: strin
     return (
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Invalid Invite Link</h1>
-          <p className="text-gray-600 mb-4">This team invite link is not valid or has expired.</p>
-          <Link href="/" className="text-blue-600 hover:underline">Go to homepage</Link>
+          <h1 className="text-2xl font-bold text-white mb-2">Invalid Invite Link</h1>
+          <p className="text-slate-400 mb-4">This team invite link is not valid or has expired.</p>
+          <Link href="/" className="text-blue-400 hover:underline">Go to homepage</Link>
         </div>
       </div>
     );
@@ -100,73 +100,73 @@ export default function JoinTeamPage({ params }: { params: Promise<{ code: strin
   return (
     <div className="flex items-center justify-center min-h-screen px-4">
       <div className="w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-2">Join {teamName}</h1>
-        <p className="text-center text-gray-600 mb-6">Register as a player</p>
+        <h1 className="text-2xl font-bold text-center text-white mb-2">Join {teamName}</h1>
+        <p className="text-center text-slate-400 mb-6">Register as a player</p>
 
-        <form onSubmit={handleJoin} className="bg-white p-6 rounded-lg shadow-sm space-y-4">
+        <form onSubmit={handleJoin} className="bg-slate-800 border border-slate-700 p-6 rounded-lg space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Full Name</label>
             <input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 rounded-md text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 rounded-md text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 rounded-md text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Jersey Number (optional)</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Jersey Number (optional)</label>
             <input
               type="number"
               value={jerseyNumber}
               onChange={(e) => setJerseyNumber(e.target.value)}
               min={1}
               max={99}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 rounded-md text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact (optional)</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Emergency Contact (optional)</label>
             <input
               type="text"
               value={emergencyContact}
               onChange={(e) => setEmergencyContact(e.target.value)}
               placeholder="Name & phone number"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 rounded-md text-sm"
             />
           </div>
 
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error && <p className="text-red-400 text-sm">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 bg-green-600 text-white font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition"
+            className="w-full py-2 bg-green-600 text-white font-medium rounded-md hover:bg-green-500 disabled:opacity-50 transition"
           >
             {loading ? "Joining..." : "Join Team"}
           </button>

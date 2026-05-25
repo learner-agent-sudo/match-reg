@@ -67,12 +67,12 @@ export default function RefereesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold">Referees</h2>
+          <h2 className="text-lg font-semibold text-white">Referees</h2>
           {tournaments.length > 1 && (
             <select
               value={selectedTournament}
               onChange={(e) => setSelectedTournament(e.target.value)}
-              className="text-sm border border-gray-300 rounded-md px-2 py-1"
+              className="text-sm rounded-md px-2 py-1"
             >
               {tournaments.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
@@ -82,70 +82,70 @@ export default function RefereesPage() {
         </div>
         <button
           onClick={() => setShowAdd(!showAdd)}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-500"
         >
           + Add Referee
         </button>
       </div>
 
       {showAdd && (
-        <div className="bg-white rounded-lg shadow-sm p-4 space-y-3">
-          <h3 className="font-medium text-sm">New Referee</h3>
+        <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 space-y-3">
+          <h3 className="font-medium text-sm text-slate-300">New Referee</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <input
               type="text"
               placeholder="Full name"
               value={form.full_name}
               onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="px-3 py-2 rounded-md text-sm"
             />
             <input
               type="tel"
               placeholder="Phone (optional)"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="px-3 py-2 rounded-md text-sm"
             />
             <input
               type="email"
               placeholder="Email (optional)"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="px-3 py-2 rounded-md text-sm"
             />
           </div>
           <button
             onClick={addReferee}
-            className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+            className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-500"
           >
             Save Referee
           </button>
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
         {referees.length === 0 ? (
-          <p className="text-sm text-gray-500">No referees added yet.</p>
+          <p className="text-sm text-slate-500">No referees added yet.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b">
-                <th className="text-left py-2 px-2">Name</th>
-                <th className="text-left py-2 px-2">Phone</th>
-                <th className="text-left py-2 px-2">Email</th>
+              <tr className="border-b border-slate-700">
+                <th className="text-left py-2 px-2 text-slate-400">Name</th>
+                <th className="text-left py-2 px-2 text-slate-400">Phone</th>
+                <th className="text-left py-2 px-2 text-slate-400">Email</th>
                 <th className="text-left py-2 px-2"></th>
               </tr>
             </thead>
             <tbody>
               {referees.map((ref) => (
-                <tr key={ref.id} className="border-b last:border-0">
-                  <td className="py-2 px-2 font-medium">{ref.full_name}</td>
-                  <td className="py-2 px-2 text-gray-600">{ref.phone ?? "—"}</td>
-                  <td className="py-2 px-2 text-gray-600">{ref.email ?? "—"}</td>
+                <tr key={ref.id} className="border-b border-slate-700/50 last:border-0">
+                  <td className="py-2 px-2 font-medium text-slate-200">{ref.full_name}</td>
+                  <td className="py-2 px-2 text-slate-400">{ref.phone ?? "—"}</td>
+                  <td className="py-2 px-2 text-slate-400">{ref.email ?? "—"}</td>
                   <td className="py-2 px-2">
                     <button
                       onClick={() => deleteReferee(ref.id)}
-                      className="text-xs text-red-500 hover:text-red-700"
+                      className="text-xs text-red-400 hover:text-red-300"
                     >
                       Remove
                     </button>

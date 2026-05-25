@@ -69,16 +69,16 @@ export default function TeamRegisterPage() {
   return (
     <div className="flex items-center justify-center min-h-screen px-4">
       <div className="w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-6">Register Your Team</h1>
+        <h1 className="text-2xl font-bold text-center text-white mb-6">Register Your Team</h1>
 
-        <form onSubmit={handleRegister} className="bg-white p-6 rounded-lg shadow-sm space-y-4">
+        <form onSubmit={handleRegister} className="bg-slate-800 border border-slate-700 p-6 rounded-lg space-y-4">
           {tournaments.length > 0 ? (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tournament</label>
+              <label className="block text-sm font-medium text-slate-300 mb-1">Tournament</label>
               <select
                 value={selectedTournament}
                 onChange={(e) => setSelectedTournament(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 rounded-md text-sm"
               >
                 {tournaments.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
@@ -86,29 +86,29 @@ export default function TeamRegisterPage() {
               </select>
             </div>
           ) : (
-            <p className="text-sm text-amber-600">
+            <p className="text-sm text-amber-400">
               No tournaments are currently open for registration. Please check back later.
             </p>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Team Name</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Team Name</label>
             <input
               type="text"
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
               required
               placeholder="e.g. Thunder FC"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 rounded-md text-sm"
             />
           </div>
 
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error && <p className="text-red-400 text-sm">{error}</p>}
 
           <button
             type="submit"
             disabled={loading || tournaments.length === 0}
-            className="w-full py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 transition"
+            className="w-full py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-500 disabled:opacity-50 transition"
           >
             {loading ? "Registering..." : "Register Team"}
           </button>

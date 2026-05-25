@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 
 const navItems = [
   { href: "/admin", label: "Teams" },
+  { href: "/admin/tournaments", label: "Tournaments" },
   { href: "/admin/matches", label: "Matches" },
   { href: "/admin/pitches", label: "Pitches" },
   { href: "/admin/referees", label: "Referees" },
@@ -47,27 +48,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   if (!authorized) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return <div className="flex items-center justify-center min-h-screen text-slate-400">Loading...</div>;
   }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <button onClick={handleSignOut} className="text-sm text-gray-600 hover:text-gray-900">
+        <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
+        <button onClick={handleSignOut} className="text-sm text-slate-400 hover:text-white transition">
           Sign Out
         </button>
       </div>
 
-      <nav className="flex gap-1 mb-6 border-b">
+      <nav className="flex gap-1 mb-6 border-b border-slate-700 overflow-x-auto">
         {navItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className={`px-4 py-2 text-sm font-medium rounded-t-md transition ${
+            className={`px-4 py-2 text-sm font-medium rounded-t-md transition whitespace-nowrap ${
               pathname === item.href
-                ? "bg-white border border-b-white -mb-px text-blue-600"
-                : "text-gray-600 hover:text-gray-900"
+                ? "bg-slate-800 border border-slate-700 border-b-slate-800 -mb-px text-blue-400"
+                : "text-slate-400 hover:text-white"
             }`}
           >
             {item.label}
