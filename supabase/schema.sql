@@ -192,6 +192,75 @@ create policy "Admins can manage runners"
     exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
   );
 
+-- =============================================
+-- PHASE 3: Match Scheduling
+-- =============================================
+
+-- Groups: for group-stage play (e.g. Group A, Group B)
+create table public.groups (
+  id uuid default uuid_generate_v4() primary key,
+  tournament_id uuid references public.tournaments(id) on delete cascade not null,
+  name text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Group memberships: which teams are in which group
+create table public.group_teams (
+  id uuid default uuid_generate_v4() primary key,
+  group_id uuid references public.groups(id) on delete cascade not null,
+  team_id uuid references public.teams(id) on delete cascade not null,
+  unique(group_id, team_id)
+);
+
+-- Matches
+create table public.matches (
+  id uuid default uuid_generate_v4() primary key,
+  tournament_id uuid references public.tournaments(id) on delete cascade not null,
+  stage text not null check (stage in ('group', 'semi_final', 'final', 'third_place', 'quarter_final', 'round_of_16')),
+  group_id uuid references public.groups(id) on delete set null,
+  home_team_id uuid references public.teams(id) on delete set null,
+  away_team_id uuid references public.teams(id) on delete set null,
+  home_score integer,
+  away_score integer,
+  time_slot_id uuid references public.time_slots(id) on delete set null,
+  referee_id uuid references public.referees(id) on delete set null,
+  runner_id uuid references public.runners(id) on delete set null,
+  status text default 'scheduled' check (status in ('scheduled', 'in_progress', 'completed', 'cancelled')),
+  match_order integer,
+  placeholder_home text,
+  placeholder_away text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- RLS for Phase 3 tables
+alter table public.groups enable row level security;
+alter table public.group_teams enable row level security;
+alter table public.matches enable row level security;
+
+create policy "Groups are viewable by everyone"
+  on public.groups for select using (true);
+
+create policy "Admins can manage groups"
+  on public.groups for all using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
+
+create policy "Group teams are viewable by everyone"
+  on public.group_teams for select using (true);
+
+create policy "Admins can manage group teams"
+  on public.group_teams for all using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
+
+create policy "Matches are viewable by everyone"
+  on public.matches for select using (true);
+
+create policy "Admins can manage matches"
+  on public.matches for all using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
+
 -- Storage bucket for payment proofs
 insert into storage.buckets (id, name, public) values ('payment-proofs', 'payment-proofs', false);
 

@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 
 const navItems = [
   { href: "/admin", label: "Teams" },
+  { href: "/admin/matches", label: "Matches" },
   { href: "/admin/pitches", label: "Pitches" },
   { href: "/admin/referees", label: "Referees" },
   { href: "/admin/runners", label: "Runners" },
