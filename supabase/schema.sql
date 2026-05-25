@@ -1,0 +1,125 @@
+-- Tournament Registration Platform Schema
+-- Run this in your Supabase SQL editor to set up the database
+
+-- Enable UUID extension
+create extension if not exists "uuid-ossp";
+
+-- Tournaments table
+create table public.tournaments (
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
+  description text,
+  start_date date,
+  end_date date,
+  max_teams integer default 8,
+  registration_open boolean default true,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Teams table
+create table public.teams (
+  id uuid default uuid_generate_v4() primary key,
+  tournament_id uuid references public.tournaments(id) on delete cascade not null,
+  name text not null,
+  invite_code text unique default encode(gen_random_bytes(6), 'hex'),
+  payment_status text default 'pending' check (payment_status in ('pending', 'submitted', 'confirmed')),
+  payment_proof_url text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Profiles table (extends Supabase auth.users)
+create table public.profiles (
+  id uuid references auth.users(id) on delete cascade primary key,
+  full_name text not null,
+  email text not null,
+  phone text,
+  team_id uuid references public.teams(id) on delete set null,
+  role text not null check (role in ('admin', 'coach', 'team_manager', 'player')),
+  jersey_number integer,
+  emergency_contact text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Row Level Security
+alter table public.tournaments enable row level security;
+alter table public.teams enable row level security;
+alter table public.profiles enable row level security;
+
+-- Tournaments: anyone can read, only admins can modify
+create policy "Tournaments are viewable by everyone"
+  on public.tournaments for select using (true);
+
+create policy "Admins can manage tournaments"
+  on public.tournaments for all using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
+
+-- Teams: anyone can read, coaches/admins can manage
+create policy "Teams are viewable by everyone"
+  on public.teams for select using (true);
+
+create policy "Coaches can create teams"
+  on public.teams for insert with check (
+    exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'coach', 'team_manager'))
+  );
+
+create policy "Team coaches can update their team"
+  on public.teams for update using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid()
+      and team_id = teams.id
+      and role in ('coach', 'team_manager')
+    )
+    or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
+
+-- Profiles: users can read all, manage their own
+create policy "Profiles are viewable by authenticated users"
+  on public.profiles for select using (auth.role() = 'authenticated');
+
+create policy "Users can insert their own profile"
+  on public.profiles for insert with check (auth.uid() = id);
+
+create policy "Users can update their own profile"
+  on public.profiles for update using (auth.uid() = id);
+
+create policy "Admins can update any profile"
+  on public.profiles for update using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
+
+-- Function to handle new user signup
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, full_name, email, role)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', ''),
+    new.email,
+    coalesce(new.raw_user_meta_data->>'role', 'player')
+  );
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Trigger to create profile on signup
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- Storage bucket for payment proofs
+insert into storage.buckets (id, name, public) values ('payment-proofs', 'payment-proofs', false);
+
+create policy "Team members can upload payment proofs"
+  on storage.objects for insert with check (
+    bucket_id = 'payment-proofs'
+    and auth.role() = 'authenticated'
+  );
+
+create policy "Authenticated users can view payment proofs"
+  on storage.objects for select using (
+    bucket_id = 'payment-proofs'
+    and auth.role() = 'authenticated'
+  );
