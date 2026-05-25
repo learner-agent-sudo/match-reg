@@ -17,9 +17,11 @@ drop table if exists public.tournaments cascade;
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists public.handle_new_user();
 
--- Delete storage bucket (ignore error if it doesn't exist)
+-- Delete storage buckets (ignore error if they don't exist)
 delete from storage.objects where bucket_id = 'payment-proofs';
 delete from storage.buckets where id = 'payment-proofs';
+delete from storage.objects where bucket_id = 'team-logos';
+delete from storage.buckets where id = 'team-logos';
 
 -- Delete any existing auth users (clean slate)
 -- Comment this out if you want to keep existing user accounts
@@ -51,6 +53,7 @@ create table public.teams (
   invite_code text unique default encode(gen_random_bytes(6), 'hex'),
   payment_status text default 'pending' check (payment_status in ('pending', 'submitted', 'confirmed')),
   payment_proof_url text,
+  logo_url text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -291,4 +294,17 @@ create policy "Authenticated users can view payment proofs"
   on storage.objects for select using (
     bucket_id = 'payment-proofs'
     and auth.role() = 'authenticated'
+  );
+
+insert into storage.buckets (id, name, public) values ('team-logos', 'team-logos', true);
+
+create policy "Coaches can upload team logos"
+  on storage.objects for insert with check (
+    bucket_id = 'team-logos'
+    and auth.role() = 'authenticated'
+  );
+
+create policy "Anyone can view team logos"
+  on storage.objects for select using (
+    bucket_id = 'team-logos'
   );

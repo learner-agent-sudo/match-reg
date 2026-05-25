@@ -8,6 +8,8 @@ export default function TeamRegisterPage() {
   const [teamName, setTeamName] = useState("");
   const [tournaments, setTournaments] = useState<{ id: string; name: string }[]>([]);
   const [selectedTournament, setSelectedTournament] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -26,6 +28,16 @@ export default function TeamRegisterPage() {
     }
     fetchTournaments();
   }, []);
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setLogoPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +62,26 @@ export default function TeamRegisterPage() {
       setError(teamError.message);
       setLoading(false);
       return;
+    }
+
+    if (logoFile) {
+      const fileExt = logoFile.name.split(".").pop();
+      const filePath = `${team.id}/logo.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("team-logos")
+        .upload(filePath, logoFile, { upsert: true });
+
+      if (!uploadError) {
+        const { data: { publicUrl } } = supabase.storage
+          .from("team-logos")
+          .getPublicUrl(filePath);
+
+        await supabase
+          .from("teams")
+          .update({ logo_url: publicUrl })
+          .eq("id", team.id);
+      }
     }
 
     const { error: profileError } = await supabase
@@ -101,6 +133,27 @@ export default function TeamRegisterPage() {
               placeholder="e.g. Thunder FC"
               className="w-full px-3 py-2 rounded-md text-sm"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">
+              Team Logo <span className="text-slate-500">(optional)</span>
+            </label>
+            <div className="flex items-center gap-4">
+              {logoPreview && (
+                <img
+                  src={logoPreview}
+                  alt="Logo preview"
+                  className="w-16 h-16 rounded-lg object-cover border border-slate-600"
+                />
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLogoChange}
+                className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-500"
+              />
+            </div>
           </div>
 
           {error && <p className="text-red-400 text-sm">{error}</p>}

@@ -24,6 +24,7 @@ create table public.teams (
   invite_code text unique default encode(gen_random_bytes(6), 'hex'),
   payment_status text default 'pending' check (payment_status in ('pending', 'submitted', 'confirmed')),
   payment_proof_url text,
+  logo_url text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -274,4 +275,18 @@ create policy "Authenticated users can view payment proofs"
   on storage.objects for select using (
     bucket_id = 'payment-proofs'
     and auth.role() = 'authenticated'
+  );
+
+-- Storage bucket for team logos (public so logos display everywhere)
+insert into storage.buckets (id, name, public) values ('team-logos', 'team-logos', true);
+
+create policy "Coaches can upload team logos"
+  on storage.objects for insert with check (
+    bucket_id = 'team-logos'
+    and auth.role() = 'authenticated'
+  );
+
+create policy "Anyone can view team logos"
+  on storage.objects for select using (
+    bucket_id = 'team-logos'
   );

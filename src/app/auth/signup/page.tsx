@@ -55,12 +55,13 @@ export default function SignUpPage() {
 
         <form onSubmit={handleSignUp} className="bg-slate-800 border border-slate-700 p-6 rounded-lg space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Full Name</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Your Full Name</label>
             <input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
+              placeholder="e.g. John Smith"
               className="w-full px-3 py-2 rounded-md text-sm"
             />
           </div>
