@@ -109,6 +109,89 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
+-- =============================================
+-- PHASE 2: Resource Planning
+-- =============================================
+
+-- Pitches: physical locations available for matches
+create table public.pitches (
+  id uuid default uuid_generate_v4() primary key,
+  tournament_id uuid references public.tournaments(id) on delete cascade not null,
+  name text not null,
+  location text not null,
+  notes text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Time slots: available time windows on pitches
+create table public.time_slots (
+  id uuid default uuid_generate_v4() primary key,
+  pitch_id uuid references public.pitches(id) on delete cascade not null,
+  date date not null,
+  start_time time not null,
+  end_time time not null,
+  is_available boolean default true,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Referees
+create table public.referees (
+  id uuid default uuid_generate_v4() primary key,
+  tournament_id uuid references public.tournaments(id) on delete cascade not null,
+  full_name text not null,
+  phone text,
+  email text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Runners: people who report match results
+create table public.runners (
+  id uuid default uuid_generate_v4() primary key,
+  tournament_id uuid references public.tournaments(id) on delete cascade not null,
+  full_name text not null,
+  phone text,
+  email text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- RLS for Phase 2 tables
+alter table public.pitches enable row level security;
+alter table public.time_slots enable row level security;
+alter table public.referees enable row level security;
+alter table public.runners enable row level security;
+
+create policy "Pitches are viewable by everyone"
+  on public.pitches for select using (true);
+
+create policy "Admins can manage pitches"
+  on public.pitches for all using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
+
+create policy "Time slots are viewable by everyone"
+  on public.time_slots for select using (true);
+
+create policy "Admins can manage time slots"
+  on public.time_slots for all using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
+
+create policy "Referees are viewable by everyone"
+  on public.referees for select using (true);
+
+create policy "Admins can manage referees"
+  on public.referees for all using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
+
+create policy "Runners are viewable by everyone"
+  on public.runners for select using (true);
+
+create policy "Admins can manage runners"
+  on public.runners for all using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
+
 -- Storage bucket for payment proofs
 insert into storage.buckets (id, name, public) values ('payment-proofs', 'payment-proofs', false);
 
