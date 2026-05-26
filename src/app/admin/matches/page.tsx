@@ -9,6 +9,7 @@ import {
   type PlayoffFormat,
   type TeamInfo,
 } from "@/lib/scheduling";
+import BracketView from "@/components/BracketView";
 
 interface Team {
   id: string;
@@ -67,6 +68,7 @@ export default function MatchesPage() {
   const [selectedTournament, setSelectedTournament] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
   const [playoffFormat, setPlayoffFormat] = useState<PlayoffFormat>("semi_1v4_2v3");
+  const [includeThirdPlace, setIncludeThirdPlace] = useState(false);
   const [showGroupSetup, setShowGroupSetup] = useState(false);
 
   useEffect(() => {
@@ -143,7 +145,7 @@ export default function MatchesPage() {
     const maxOrder = matches.length > 0 ? Math.max(...matches.map((m) => m.match_order)) : 0;
     if (playoffFormat === "championship_random") {
       const shuffled = shuffleTeams(teams);
-      const playoffMatches = generatePlayoffBracket(playoffFormat, shuffled.length);
+      const playoffMatches = generatePlayoffBracket(playoffFormat, shuffled.length, includeThirdPlace);
       const matchRows = playoffMatches.map((m, i) => {
         const row: Record<string, unknown> = {
           tournament_id: selectedTournament, stage: m.stage,
@@ -162,7 +164,7 @@ export default function MatchesPage() {
       });
       await supabase.from("matches").insert(matchRows);
     } else {
-      const bracket = generatePlayoffBracket(playoffFormat, teams.length);
+      const bracket = generatePlayoffBracket(playoffFormat, teams.length, includeThirdPlace);
       await supabase.from("matches").insert(
         bracket.map((m, i) => ({ ...m, tournament_id: selectedTournament, match_order: maxOrder + i + 1 }))
       );
@@ -294,7 +296,7 @@ export default function MatchesPage() {
 
           <div className="border-t border-slate-700 pt-4">
             <h4 className="font-medium text-sm text-slate-300 mb-2">Generate Playoff Bracket</h4>
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap gap-3 items-center">
               <select
                 value={playoffFormat}
                 onChange={(e) => setPlayoffFormat(e.target.value as PlayoffFormat)}
@@ -304,6 +306,15 @@ export default function MatchesPage() {
                 <option value="semi_1v2_3v4">Semi: 1st vs 2nd, 3rd vs 4th</option>
                 <option value="championship_random">Championship: Random draw</option>
               </select>
+              <label className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeThirdPlace}
+                  onChange={(e) => setIncludeThirdPlace(e.target.checked)}
+                  className="rounded border-slate-600 bg-slate-700 text-blue-500"
+                />
+                Include 3rd place match
+              </label>
               <button onClick={generatePlayoffs} className="px-3 py-1.5 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-500">
                 Generate Playoffs
               </button>
@@ -325,15 +336,29 @@ export default function MatchesPage() {
       )}
 
       {playoffMatches.length > 0 && (
-        <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
-          <h3 className="font-semibold text-white mb-4">Playoff Matches</h3>
-          <div className="space-y-2">
-            {playoffMatches.map((match) => (
-              <MatchRow key={match.id} match={match} teams={teams} timeSlots={timeSlots} referees={referees}
-                runners={runners} onAssign={assignToMatch} onScore={updateScore} onDelete={deleteMatch} getTeamName={getTeamName} />
-            ))}
+        <>
+          <BracketView
+            matches={playoffMatches.map((m) => ({
+              id: m.id,
+              stage: m.stage,
+              homeName: m.home_team_id ? getTeamName(m.home_team_id) : (m.placeholder_home ?? "TBD"),
+              awayName: m.away_team_id ? getTeamName(m.away_team_id) : (m.placeholder_away ?? "TBD"),
+              homeScore: m.home_score,
+              awayScore: m.away_score,
+              status: m.status,
+            }))}
+          />
+
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
+            <h3 className="font-semibold text-white mb-4">Playoff Matches</h3>
+            <div className="space-y-2">
+              {playoffMatches.map((match) => (
+                <MatchRow key={match.id} match={match} teams={teams} timeSlots={timeSlots} referees={referees}
+                  runners={runners} onAssign={assignToMatch} onScore={updateScore} onDelete={deleteMatch} getTeamName={getTeamName} />
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {matches.length === 0 && (

@@ -44,34 +44,37 @@ export type PlayoffFormat =
 
 export function generatePlayoffBracket(
   format: PlayoffFormat,
-  numTeams: number
+  numTeams: number,
+  includeThirdPlace: boolean = false
 ): PlayoffMatch[] {
   const matches: PlayoffMatch[] = [];
 
   if (format === "semi_1v4_2v3") {
     matches.push(
       { stage: "semi_final", placeholder_home: "Group 1st", placeholder_away: "Group 4th", match_order: 1 },
-      { stage: "semi_final", placeholder_home: "Group 2nd", placeholder_away: "Group 3rd", match_order: 2 },
-      { stage: "third_place", placeholder_home: "SF1 Loser", placeholder_away: "SF2 Loser", match_order: 3 },
-      { stage: "final", placeholder_home: "SF1 Winner", placeholder_away: "SF2 Winner", match_order: 4 }
+      { stage: "semi_final", placeholder_home: "Group 2nd", placeholder_away: "Group 3rd", match_order: 2 }
     );
   } else if (format === "semi_1v2_3v4") {
     matches.push(
       { stage: "semi_final", placeholder_home: "Group 1st", placeholder_away: "Group 2nd", match_order: 1 },
-      { stage: "semi_final", placeholder_home: "Group 3rd", placeholder_away: "Group 4th", match_order: 2 },
-      { stage: "third_place", placeholder_home: "SF1 Loser", placeholder_away: "SF2 Loser", match_order: 3 },
-      { stage: "final", placeholder_home: "SF1 Winner", placeholder_away: "SF2 Winner", match_order: 4 }
+      { stage: "semi_final", placeholder_home: "Group 3rd", placeholder_away: "Group 4th", match_order: 2 }
     );
-  } else if (format === "championship_random") {
-    if (numTeams >= 4) {
-      matches.push(
-        { stage: "semi_final", placeholder_home: "Team A (random)", placeholder_away: "Team B (random)", match_order: 1 },
-        { stage: "semi_final", placeholder_home: "Team C (random)", placeholder_away: "Team D (random)", match_order: 2 },
-        { stage: "third_place", placeholder_home: "SF1 Loser", placeholder_away: "SF2 Loser", match_order: 3 },
-        { stage: "final", placeholder_home: "SF1 Winner", placeholder_away: "SF2 Winner", match_order: 4 }
-      );
-    }
+  } else if (format === "championship_random" && numTeams >= 4) {
+    matches.push(
+      { stage: "semi_final", placeholder_home: "Team A (random)", placeholder_away: "Team B (random)", match_order: 1 },
+      { stage: "semi_final", placeholder_home: "Team C (random)", placeholder_away: "Team D (random)", match_order: 2 }
+    );
   }
+
+  if (includeThirdPlace) {
+    matches.push(
+      { stage: "third_place", placeholder_home: "SF1 Loser", placeholder_away: "SF2 Loser", match_order: matches.length + 1 }
+    );
+  }
+
+  matches.push(
+    { stage: "final", placeholder_home: "SF1 Winner", placeholder_away: "SF2 Winner", match_order: matches.length + 1 }
+  );
 
   return matches;
 }
