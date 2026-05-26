@@ -18,10 +18,8 @@ drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists public.handle_new_user();
 
 -- Delete storage buckets (ignore error if they don't exist)
-delete from storage.objects where bucket_id = 'payment-proofs';
-delete from storage.buckets where id = 'payment-proofs';
-delete from storage.objects where bucket_id = 'team-logos';
-delete from storage.buckets where id = 'team-logos';
+-- NOTE: Storage buckets must be managed via the Supabase Dashboard > Storage
+-- Go to Storage, delete 'payment-proofs' and 'team-logos' buckets if they exist
 
 -- Delete any existing auth users (clean slate)
 -- Comment this out if you want to keep existing user accounts
@@ -279,10 +277,22 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 -- =============================================
--- Storage
+-- Storage (uses INSERT ... ON CONFLICT to avoid errors on re-run)
 -- =============================================
 
-insert into storage.buckets (id, name, public) values ('payment-proofs', 'payment-proofs', false);
+insert into storage.buckets (id, name, public)
+values ('payment-proofs', 'payment-proofs', false)
+on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public)
+values ('team-logos', 'team-logos', true)
+on conflict (id) do nothing;
+
+-- Storage policies (drop first to avoid "already exists" errors)
+drop policy if exists "Team members can upload payment proofs" on storage.objects;
+drop policy if exists "Authenticated users can view payment proofs" on storage.objects;
+drop policy if exists "Coaches can upload team logos" on storage.objects;
+drop policy if exists "Anyone can view team logos" on storage.objects;
 
 create policy "Team members can upload payment proofs"
   on storage.objects for insert with check (
@@ -295,8 +305,6 @@ create policy "Authenticated users can view payment proofs"
     bucket_id = 'payment-proofs'
     and auth.role() = 'authenticated'
   );
-
-insert into storage.buckets (id, name, public) values ('team-logos', 'team-logos', true);
 
 create policy "Coaches can upload team logos"
   on storage.objects for insert with check (
