@@ -143,13 +143,12 @@ export default function MatchesPage() {
   const generatePlayoffs = async () => {
     const supabase = createClient();
 
-    // Clear existing playoff matches first
-    await supabase.from("matches")
-      .delete()
-      .eq("tournament_id", selectedTournament)
-      .neq("stage", "group");
+    // Delete ALL existing playoff matches one by one to avoid RLS issues
+    const existingPlayoffs = matches.filter((m) => m.stage !== "group");
+    for (const m of existingPlayoffs) {
+      await supabase.from("matches").delete().eq("id", m.id);
+    }
 
-    // Calculate group standings from completed group matches
     const completedGroupMatches = matches.filter((m) => m.stage === "group");
     const allGroupTeamIds = groups.flatMap((g) => g.group_teams.map((gt) => gt.team_id));
     const standings = calculateStandings(completedGroupMatches, allGroupTeamIds);
@@ -163,7 +162,9 @@ export default function MatchesPage() {
       includeThirdPlace
     );
 
-    const maxOrder = matches.length > 0 ? Math.max(...matches.map((m) => m.match_order)) : 0;
+    const groupMaxOrder = completedGroupMatches.length > 0
+      ? Math.max(...completedGroupMatches.map((m) => m.match_order))
+      : 0;
 
     await supabase.from("matches").insert(
       bracket.map((m, i) => ({
@@ -173,48 +174,88 @@ export default function MatchesPage() {
         placeholder_away: m.away_team_id ? null : m.placeholder_away,
         home_team_id: m.home_team_id ?? null,
         away_team_id: m.away_team_id ?? null,
-        match_order: maxOrder + i + 1,
+        match_order: groupMaxOrder + i + 1,
       }))
     );
     loadAll();
   };
 
+  const [pinnedMatches, setPinnedMatches] = useState<Set<string>>(new Set());
+  const [scheduleMessage, setScheduleMessage] = useState("");
+
+  const togglePin = (matchId: string) => {
+    setPinnedMatches((prev) => {
+      const next = new Set(prev);
+      if (next.has(matchId)) next.delete(matchId);
+      else next.add(matchId);
+      return next;
+    });
+  };
+
+  const usedSlotIds = new Set(matches.filter((m) => m.time_slot_id).map((m) => m.time_slot_id));
+
   const autoScheduleMatches = async () => {
     const supabase = createClient();
-    const unscheduled = matches.filter((m) => !m.time_slot_id);
-    const usedSlotIds = new Set(matches.filter((m) => m.time_slot_id).map((m) => m.time_slot_id));
-    const availableSlots = timeSlots
-      .filter((s) => !usedSlotIds.has(s.id))
+    setScheduleMessage("");
+
+    const unpinned = matches.filter((m) => !m.time_slot_id && !pinnedMatches.has(m.id));
+    const currentUsedSlots = new Set(
+      matches.filter((m) => m.time_slot_id).map((m) => m.time_slot_id)
+    );
+
+    const sortedSlots = [...timeSlots]
+      .filter((s) => !currentUsedSlots.has(s.id))
       .sort((a, b) => `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`));
 
-    let slotIndex = 0;
-    for (const match of unscheduled) {
-      if (slotIndex >= availableSlots.length) break;
+    // Build a map of which teams play at which date+time
+    const assignmentMap: Record<string, Set<string>> = {};
+    for (const m of matches) {
+      if (!m.time_slot_id) continue;
+      const slot = timeSlots.find((s) => s.id === m.time_slot_id);
+      if (!slot) continue;
+      const key = `${slot.date}_${slot.start_time}`;
+      if (!assignmentMap[key]) assignmentMap[key] = new Set();
+      if (m.home_team_id) assignmentMap[key].add(m.home_team_id);
+      if (m.away_team_id) assignmentMap[key].add(m.away_team_id);
+    }
 
-      // Find a slot where neither team is already playing at the same time
-      let assigned = false;
-      for (let i = slotIndex; i < availableSlots.length; i++) {
-        const slot = availableSlots[i];
-        const sameTimeMatches = matches.filter(
-          (m) => m.time_slot_id && timeSlots.find((ts) => ts.id === m.time_slot_id)?.date === slot.date
-            && timeSlots.find((ts) => ts.id === m.time_slot_id)?.start_time === slot.start_time
-        );
+    let assignedCount = 0;
+    const unassignable: string[] = [];
 
-        const teamsPlayingAtSameTime = new Set(
-          sameTimeMatches.flatMap((m) => [m.home_team_id, m.away_team_id].filter(Boolean))
-        );
+    for (const match of unpinned) {
+      let foundSlot = false;
+      for (const slot of sortedSlots) {
+        if (currentUsedSlots.has(slot.id)) continue;
 
-        const conflict = (match.home_team_id && teamsPlayingAtSameTime.has(match.home_team_id))
-          || (match.away_team_id && teamsPlayingAtSameTime.has(match.away_team_id));
+        const key = `${slot.date}_${slot.start_time}`;
+        const teamsAtTime = assignmentMap[key] || new Set();
+        const conflict = (match.home_team_id && teamsAtTime.has(match.home_team_id))
+          || (match.away_team_id && teamsAtTime.has(match.away_team_id));
 
         if (!conflict) {
           await supabase.from("matches").update({ time_slot_id: slot.id }).eq("id", match.id);
-          usedSlotIds.add(slot.id);
-          assigned = true;
+          currentUsedSlots.add(slot.id);
+          if (!assignmentMap[key]) assignmentMap[key] = new Set();
+          if (match.home_team_id) assignmentMap[key].add(match.home_team_id);
+          if (match.away_team_id) assignmentMap[key].add(match.away_team_id);
+          assignedCount++;
+          foundSlot = true;
           break;
         }
       }
-      if (!assigned) slotIndex++;
+      if (!foundSlot) {
+        const home = match.home_team_id ? getTeamName(match.home_team_id) : (match.placeholder_home ?? "TBD");
+        const away = match.away_team_id ? getTeamName(match.away_team_id) : (match.placeholder_away ?? "TBD");
+        unassignable.push(`${home} vs ${away}`);
+      }
+    }
+
+    if (unassignable.length > 0) {
+      setScheduleMessage(`Assigned ${assignedCount} match(es). Could not assign: ${unassignable.join(", ")} — not enough available time slots.`);
+    } else if (assignedCount > 0) {
+      setScheduleMessage(`All ${assignedCount} match(es) scheduled successfully.`);
+    } else {
+      setScheduleMessage("No matches to schedule.");
     }
     loadAll();
   };
@@ -298,6 +339,15 @@ export default function MatchesPage() {
           )}
         </div>
       </div>
+
+      {scheduleMessage && (
+        <div className={`p-3 rounded-lg text-sm ${
+          scheduleMessage.includes("Could not") ? "bg-amber-900/30 border border-amber-700 text-amber-300" : "bg-green-900/30 border border-green-700 text-green-300"
+        }`}>
+          {scheduleMessage}
+          <button onClick={() => setScheduleMessage("")} className="ml-2 text-xs opacity-60 hover:opacity-100">dismiss</button>
+        </div>
+      )}
 
       {showGroupSetup && (
         <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 space-y-4">
@@ -384,7 +434,8 @@ export default function MatchesPage() {
           <div className="space-y-2">
             {groupMatches.map((match) => (
               <MatchRow key={match.id} match={match} teams={teams} timeSlots={timeSlots} referees={referees}
-                runners={runners} onAssign={assignToMatch} onScore={updateScore} onDelete={deleteMatch} getTeamName={getTeamName} />
+                runners={runners} onAssign={assignToMatch} onScore={updateScore} onDelete={deleteMatch} getTeamName={getTeamName}
+                isPinned={pinnedMatches.has(match.id)} onTogglePin={() => togglePin(match.id)} usedSlotIds={usedSlotIds} />
             ))}
           </div>
         </div>
@@ -458,7 +509,8 @@ export default function MatchesPage() {
             <div className="space-y-2">
               {playoffMatches.map((match) => (
                 <MatchRow key={match.id} match={match} teams={teams} timeSlots={timeSlots} referees={referees}
-                  runners={runners} onAssign={assignToMatch} onScore={updateScore} onDelete={deleteMatch} getTeamName={getTeamName} />
+                  runners={runners} onAssign={assignToMatch} onScore={updateScore} onDelete={deleteMatch} getTeamName={getTeamName}
+                  isPinned={pinnedMatches.has(match.id)} onTogglePin={() => togglePin(match.id)} usedSlotIds={usedSlotIds} />
               ))}
             </div>
           </div>
@@ -476,12 +528,16 @@ export default function MatchesPage() {
 
 function MatchRow({
   match, teams, timeSlots, referees, runners, onAssign, onScore, onDelete, getTeamName,
+  isPinned, onTogglePin, usedSlotIds,
 }: {
   match: Match; teams: Team[]; timeSlots: TimeSlot[]; referees: Referee[]; runners: Runner[];
   onAssign: (id: string, field: string, value: string | null) => void;
   onScore: (id: string, home: number | null, away: number | null) => void;
   onDelete: (id: string) => void;
   getTeamName: (id: string | null) => string;
+  isPinned: boolean;
+  onTogglePin: () => void;
+  usedSlotIds: Set<string | null>;
 }) {
   const [homeScore, setHomeScore] = useState(match.home_score?.toString() ?? "");
   const [awayScore, setAwayScore] = useState(match.away_score?.toString() ?? "");
@@ -490,10 +546,21 @@ function MatchRow({
   const awayName = match.away_team_id ? getTeamName(match.away_team_id) : (match.placeholder_away ?? "TBD");
   const stageLabel = match.stage.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase());
 
+  const availableSlots = timeSlots.filter(
+    (s) => s.id === match.time_slot_id || !usedSlotIds.has(s.id)
+  );
+
   return (
-    <div className="border border-slate-600 rounded-md p-3 text-sm">
+    <div className={`border rounded-md p-3 text-sm ${isPinned ? "border-amber-600 bg-amber-900/10" : "border-slate-600"}`}>
       <div className="flex justify-between items-center mb-2">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onTogglePin}
+            title={isPinned ? "Unpin (auto-schedule can move this)" : "Pin (auto-schedule will skip this)"}
+            className={`text-xs px-1.5 py-0.5 rounded ${isPinned ? "bg-amber-700 text-amber-200" : "bg-slate-700 text-slate-500 hover:text-slate-300"}`}
+          >
+            {isPinned ? "Pinned" : "Pin"}
+          </button>
           <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-400">{stageLabel}</span>
           <span className="font-medium text-slate-200">{homeName}</span>
           <span className="text-slate-500">vs</span>
@@ -511,7 +578,7 @@ function MatchRow({
         <select value={match.time_slot_id ?? ""} onChange={(e) => onAssign(match.id, "time_slot_id", e.target.value)}
           className="text-xs rounded px-2 py-1">
           <option value="">Assign time slot...</option>
-          {timeSlots.map((s) => (
+          {availableSlots.map((s) => (
             <option key={s.id} value={s.id}>{s.date} {s.start_time.slice(0, 5)} ({s.pitch?.name})</option>
           ))}
         </select>
