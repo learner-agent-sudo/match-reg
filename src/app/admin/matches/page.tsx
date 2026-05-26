@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   generateRoundRobin,
   generatePlayoffBracket,
-  shuffleTeams,
+  calculateStandings,
   type PlayoffFormat,
   type TeamInfo,
 } from "@/lib/scheduling";
@@ -142,32 +142,79 @@ export default function MatchesPage() {
 
   const generatePlayoffs = async () => {
     const supabase = createClient();
+
+    // Clear existing playoff matches first
+    await supabase.from("matches")
+      .delete()
+      .eq("tournament_id", selectedTournament)
+      .neq("stage", "group");
+
+    // Calculate group standings from completed group matches
+    const completedGroupMatches = matches.filter((m) => m.stage === "group");
+    const allGroupTeamIds = groups.flatMap((g) => g.group_teams.map((gt) => gt.team_id));
+    const standings = calculateStandings(completedGroupMatches, allGroupTeamIds);
+
+    const allGroupsDone = completedGroupMatches.length > 0 &&
+      completedGroupMatches.every((m) => m.status === "completed");
+
+    const bracket = generatePlayoffBracket(
+      playoffFormat,
+      allGroupsDone ? standings : null,
+      includeThirdPlace
+    );
+
     const maxOrder = matches.length > 0 ? Math.max(...matches.map((m) => m.match_order)) : 0;
-    if (playoffFormat === "championship_random") {
-      const shuffled = shuffleTeams(teams);
-      const playoffMatches = generatePlayoffBracket(playoffFormat, shuffled.length, includeThirdPlace);
-      const matchRows = playoffMatches.map((m, i) => {
-        const row: Record<string, unknown> = {
-          tournament_id: selectedTournament, stage: m.stage,
-          placeholder_home: m.placeholder_home, placeholder_away: m.placeholder_away,
-          match_order: maxOrder + i + 1,
-        };
-        if (m.stage === "semi_final" && i === 0 && shuffled.length >= 2) {
-          row.home_team_id = shuffled[0].id; row.away_team_id = shuffled[1].id;
-          row.placeholder_home = null; row.placeholder_away = null;
+
+    await supabase.from("matches").insert(
+      bracket.map((m, i) => ({
+        tournament_id: selectedTournament,
+        stage: m.stage,
+        placeholder_home: m.home_team_id ? null : m.placeholder_home,
+        placeholder_away: m.away_team_id ? null : m.placeholder_away,
+        home_team_id: m.home_team_id ?? null,
+        away_team_id: m.away_team_id ?? null,
+        match_order: maxOrder + i + 1,
+      }))
+    );
+    loadAll();
+  };
+
+  const autoScheduleMatches = async () => {
+    const supabase = createClient();
+    const unscheduled = matches.filter((m) => !m.time_slot_id);
+    const usedSlotIds = new Set(matches.filter((m) => m.time_slot_id).map((m) => m.time_slot_id));
+    const availableSlots = timeSlots
+      .filter((s) => !usedSlotIds.has(s.id))
+      .sort((a, b) => `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`));
+
+    let slotIndex = 0;
+    for (const match of unscheduled) {
+      if (slotIndex >= availableSlots.length) break;
+
+      // Find a slot where neither team is already playing at the same time
+      let assigned = false;
+      for (let i = slotIndex; i < availableSlots.length; i++) {
+        const slot = availableSlots[i];
+        const sameTimeMatches = matches.filter(
+          (m) => m.time_slot_id && timeSlots.find((ts) => ts.id === m.time_slot_id)?.date === slot.date
+            && timeSlots.find((ts) => ts.id === m.time_slot_id)?.start_time === slot.start_time
+        );
+
+        const teamsPlayingAtSameTime = new Set(
+          sameTimeMatches.flatMap((m) => [m.home_team_id, m.away_team_id].filter(Boolean))
+        );
+
+        const conflict = (match.home_team_id && teamsPlayingAtSameTime.has(match.home_team_id))
+          || (match.away_team_id && teamsPlayingAtSameTime.has(match.away_team_id));
+
+        if (!conflict) {
+          await supabase.from("matches").update({ time_slot_id: slot.id }).eq("id", match.id);
+          usedSlotIds.add(slot.id);
+          assigned = true;
+          break;
         }
-        if (m.stage === "semi_final" && i === 1 && shuffled.length >= 4) {
-          row.home_team_id = shuffled[2].id; row.away_team_id = shuffled[3].id;
-          row.placeholder_home = null; row.placeholder_away = null;
-        }
-        return row;
-      });
-      await supabase.from("matches").insert(matchRows);
-    } else {
-      const bracket = generatePlayoffBracket(playoffFormat, teams.length, includeThirdPlace);
-      await supabase.from("matches").insert(
-        bracket.map((m, i) => ({ ...m, tournament_id: selectedTournament, match_order: maxOrder + i + 1 }))
-      );
+      }
+      if (!assigned) slotIndex++;
     }
     loadAll();
   };
@@ -233,6 +280,14 @@ export default function MatchesPage() {
           >
             {showGroupSetup ? "Hide Setup" : "Group Setup"}
           </button>
+          {matches.some((m) => !m.time_slot_id) && timeSlots.length > 0 && (
+            <button
+              onClick={autoScheduleMatches}
+              className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-500"
+            >
+              Auto Schedule
+            </button>
+          )}
           {matches.length > 0 && (
             <button
               onClick={deleteAllMatches}
@@ -332,6 +387,55 @@ export default function MatchesPage() {
                 runners={runners} onAssign={assignToMatch} onScore={updateScore} onDelete={deleteMatch} getTeamName={getTeamName} />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Group Standings */}
+      {groupMatches.length > 0 && groupMatches.some((m) => m.status === "completed") && (
+        <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
+          <h3 className="font-semibold text-white mb-4">Group Standings</h3>
+          {groups.map((group) => {
+            const groupTeamIds = group.group_teams.map((gt) => gt.team_id);
+            const groupMatchesForGroup = groupMatches.filter((m) => m.group_id === group.id);
+            const standings = calculateStandings(groupMatchesForGroup, groupTeamIds);
+            return (
+              <div key={group.id} className="mb-4 last:mb-0">
+                <h4 className="text-sm font-medium text-slate-400 mb-2">{group.name}</h4>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-700">
+                      <th className="text-left py-1 px-2 text-slate-400">#</th>
+                      <th className="text-left py-1 px-2 text-slate-400">Team</th>
+                      <th className="text-center py-1 px-2 text-slate-400">P</th>
+                      <th className="text-center py-1 px-2 text-slate-400">W</th>
+                      <th className="text-center py-1 px-2 text-slate-400">D</th>
+                      <th className="text-center py-1 px-2 text-slate-400">L</th>
+                      <th className="text-center py-1 px-2 text-slate-400">GF</th>
+                      <th className="text-center py-1 px-2 text-slate-400">GA</th>
+                      <th className="text-center py-1 px-2 text-slate-400">GD</th>
+                      <th className="text-center py-1 px-2 text-slate-400 font-semibold">Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standings.map((s, i) => (
+                      <tr key={s.team_id} className="border-b border-slate-700/50 last:border-0">
+                        <td className="py-1.5 px-2 text-slate-500">{i + 1}</td>
+                        <td className="py-1.5 px-2 text-slate-200 font-medium">{getTeamName(s.team_id)}</td>
+                        <td className="py-1.5 px-2 text-center text-slate-300">{s.played}</td>
+                        <td className="py-1.5 px-2 text-center text-slate-300">{s.won}</td>
+                        <td className="py-1.5 px-2 text-center text-slate-300">{s.drawn}</td>
+                        <td className="py-1.5 px-2 text-center text-slate-300">{s.lost}</td>
+                        <td className="py-1.5 px-2 text-center text-slate-300">{s.goals_for}</td>
+                        <td className="py-1.5 px-2 text-center text-slate-300">{s.goals_against}</td>
+                        <td className="py-1.5 px-2 text-center text-slate-300">{s.goal_difference > 0 ? "+" : ""}{s.goal_difference}</td>
+                        <td className="py-1.5 px-2 text-center text-white font-semibold">{s.points}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
         </div>
       )}
 
