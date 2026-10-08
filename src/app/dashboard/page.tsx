@@ -87,7 +87,8 @@ export default function DashboardPage() {
 
   const copyInviteLink = () => {
     if (!team) return;
-    const link = `${window.location.origin}/team/join/${team.invite_code}`;
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+    const link = `${window.location.origin}${basePath}/team/join/?code=${team.invite_code}`;
     navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

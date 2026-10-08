@@ -21,27 +21,28 @@ export default function SignUpPage() {
 
     const supabase = createClient();
 
-    const { count } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true });
-
-    const assignedRole = count === 0 ? "admin" : role;
-
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName, role: assignedRole },
+        data: { full_name: fullName, role },
       },
     });
 
-    if (error) {
-      setError(error.message);
+    if (error || !data.user) {
+      setError(error?.message ?? "Sign up failed.");
       setLoading(false);
       return;
     }
 
-    if (assignedRole === "admin") {
+    // The database decides the role (the very first account becomes admin).
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profile?.role === "admin") {
       router.push("/admin");
     } else {
       router.push("/team/register");

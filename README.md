@@ -1,96 +1,74 @@
 # Tournament Hub
 
-A soccer tournament registration and management platform built with Next.js and Supabase.
+A soccer tournament registration and management site. It is a static website
+(hosted free on GitHub Pages) that talks directly to a Supabase database.
 
-## Features (Phase 1)
+## Features
 
-- **Team Registration**: Coaches/managers sign up and register their team
-- **Player Invite Links**: Coaches share a unique link for players to join
-- **Role Management**: Admin, Coach, Team Manager, Player roles
-- **Payment Tracking**: Teams upload payment proof screenshots
-- **Admin Dashboard**: View all teams, members, and manage payment status
+- **Team registration**: coaches / team managers sign up and register a team (with optional logo)
+- **Player invite links**: coaches share a link; players join the team through it
+- **Roles**: admin, coach, team manager, player
+- **Payment tracking**: teams upload a payment screenshot; admin confirms
+- **Resource planning**: pitches with date/time slots, referees, runners
+- **Match scheduling**: round-robin groups, standings, playoff brackets, auto-schedule with pinning
 
-## Setup
+## Setting up a new copy (no coding needed)
 
-### 1. Create a Supabase Project
+### 1. Supabase (the database)
 
-1. Go to [supabase.com](https://supabase.com) and create a new project
-2. Go to **SQL Editor** and run the contents of `supabase/schema.sql`
-3. Go to **Settings > API** and copy your project URL and anon key
+1. Create a free project at [supabase.com](https://supabase.com).
+2. **SQL Editor** → paste and run `supabase/reset.sql`.
+   Optionally also run `supabase/seed.sql` to load demo data.
+3. **Authentication → Sign In / Providers → Email**: turn **off** "Confirm email".
+4. **Project Settings → API**: copy the **Project URL** and the **anon public** key.
 
-### 2. Configure Environment Variables
+### 2. GitHub (the website)
+
+1. Fork or copy this repository.
+2. **Settings → Pages** → Source: **GitHub Actions**.
+3. **Settings → Secrets and variables → Actions → Variables tab** → add:
+   - `NEXT_PUBLIC_SUPABASE_URL` = your Project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = your anon public key
+4. **Actions** tab → **Deploy to GitHub Pages** → **Run workflow**.
+   After that, every push deploys automatically (takes 1–2 minutes).
+
+Your site will be at `https://<your-github-name>.github.io/<repo-name>/`.
+
+### 3. Back in Supabase
+
+**Authentication → URL Configuration** → set **Site URL** to your site address from step 2.
+
+### 4. First login
+
+Open the site and click **Register Your Team**. The **very first account** created
+becomes the admin automatically. Everyone after that is a coach, team manager or player.
+
+The anon key is designed to be public: it is visible to anyone who opens the
+site. What protects the data is the Row Level Security rules in `supabase/reset.sql`.
+
+## User flows
+
+- **Coach / manager**: Register Your Team → sign up → register team → copy invite link from the dashboard
+- **Player**: open the invite link (`.../team/join/?code=...`) → fill in details → joined
+- **Admin**: Tournaments, Teams (payment status), Pitches, Referees, Runners, Matches tabs
+
+## Running locally (optional, for developers)
 
 ```bash
-cp .env.local.example .env.local
-```
-
-Edit `.env.local` with your Supabase credentials:
-```
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
-
-### 3. Create the First Admin
-
-After running the schema, manually insert an admin user:
-
-1. Sign up through the app normally
-2. In Supabase dashboard, go to **Table Editor > profiles**
-3. Change the user's `role` to `admin`
-
-### 4. Create a Tournament
-
-In Supabase **Table Editor > tournaments**, insert a row:
-- `name`: Your tournament name
-- `registration_open`: true
-- `max_teams`: 8 (or your limit)
-
-### 5. Run Locally
-
-```bash
+cp .env.local.example .env.local   # fill in the Supabase URL and anon key
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+## Database scripts
 
-### 6. Deploy to Vercel
+| File | Use |
+|------|-----|
+| `supabase/reset.sql` | Wipes and rebuilds all tables. Safe to run repeatedly. |
+| `supabase/seed.sql` | Demo tournament, 4 teams, pitches, referees, runners, group matches. |
+| `supabase/security-fix.sql` | Role protection only, for databases created before it existed. |
+| `supabase/schema.sql` | Same structure as `reset.sql`, for a brand-new empty project. |
 
-```bash
-npx vercel
-```
+## Tech
 
-Or connect the repo to Vercel and it will auto-deploy. Set the environment variables in the Vercel dashboard.
-
-## User Flows
-
-### Coach/Manager Registration
-1. Visit `/auth/signup` and select role (Coach or Team Manager)
-2. After signup, register team at `/team/register`
-3. From dashboard, copy invite link to share with players
-
-### Player Registration
-1. Receive invite link from coach (e.g., `/team/join/abc123`)
-2. Fill in details (name, email, password, jersey number)
-3. Automatically added to the team
-
-### Admin
-1. View all teams and their payment status at `/admin`
-2. Click a team to see its members
-3. Update payment status (pending -> submitted -> confirmed)
-
-## Tech Stack
-
-- **Framework**: Next.js 15 (App Router)
-- **Database**: Supabase (PostgreSQL)
-- **Auth**: Supabase Auth
-- **Storage**: Supabase Storage (payment proofs)
-- **Styling**: Tailwind CSS
-- **Deployment**: Vercel
-
-## Upcoming Phases
-
-- Phase 2: Resource planning (pitches, referees, runners)
-- Phase 3: Match scheduling (group stage, playoffs, championship)
-- Phase 4: Live results and standings
-- Phase 5: Rules document management
+Next.js (static export) · Supabase (Postgres, Auth, Storage) · Tailwind CSS · GitHub Pages

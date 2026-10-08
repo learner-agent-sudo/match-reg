@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function JoinTeamPage({ params }: { params: Promise<{ code: string }> }) {
-  const { code } = use(params);
+export default function JoinTeamForm() {
+  const code = useSearchParams().get("code") ?? "";
+  const [checking, setChecking] = useState(true);
   const [teamName, setTeamName] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -20,6 +21,7 @@ export default function JoinTeamPage({ params }: { params: Promise<{ code: strin
 
   useEffect(() => {
     async function fetchTeam() {
+      if (!code) { setChecking(false); return; }
       const supabase = createClient();
       const { data } = await supabase
         .from("teams")
@@ -31,6 +33,7 @@ export default function JoinTeamPage({ params }: { params: Promise<{ code: strin
         setTeamName(data.name);
         setTeamFound(true);
       }
+      setChecking(false);
     }
     fetchTeam();
   }, [code]);
@@ -84,6 +87,10 @@ export default function JoinTeamPage({ params }: { params: Promise<{ code: strin
 
     router.push("/dashboard");
   };
+
+  if (checking) {
+    return <div className="flex items-center justify-center min-h-screen text-slate-400">Loading...</div>;
+  }
 
   if (!teamFound) {
     return (
