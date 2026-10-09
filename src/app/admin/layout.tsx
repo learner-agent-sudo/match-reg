@@ -13,6 +13,7 @@ const navItems = [
   { href: "/admin/pitches", label: "Pitches" },
   { href: "/admin/referees", label: "Referees" },
   { href: "/admin/runners", label: "Runners" },
+  { href: "/admin/test-tools", label: "Test Tools" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

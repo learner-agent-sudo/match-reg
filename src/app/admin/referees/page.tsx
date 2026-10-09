@@ -20,7 +20,7 @@ export default function RefereesPage() {
   useEffect(() => {
     async function loadTournaments() {
       const supabase = createClient();
-      const { data } = await supabase.from("tournaments").select("id, name");
+      const { data } = await supabase.from("tournaments").select("id, name").order("created_at", { ascending: false });
       if (data && data.length > 0) {
         setTournaments(data);
         setSelectedTournament(data[0].id);

@@ -74,7 +74,7 @@ export default function MatchesPage() {
   useEffect(() => {
     async function loadTournaments() {
       const supabase = createClient();
-      const { data } = await supabase.from("tournaments").select("id, name");
+      const { data } = await supabase.from("tournaments").select("id, name").order("created_at", { ascending: false });
       if (data && data.length > 0) {
         setTournaments(data);
         setSelectedTournament(data[0].id);
@@ -93,7 +93,10 @@ export default function MatchesPage() {
       supabase.from("teams").select("id, name").eq("tournament_id", selectedTournament),
       supabase.from("groups").select("id, name, group_teams(team_id)").eq("tournament_id", selectedTournament),
       supabase.from("matches").select("*").eq("tournament_id", selectedTournament).order("match_order"),
-      supabase.from("time_slots").select("id, date, start_time, end_time, pitch:pitches(name)").eq("is_available", true),
+      supabase.from("time_slots")
+        .select("id, date, start_time, end_time, pitch:pitches!inner(name, tournament_id)")
+        .eq("is_available", true)
+        .eq("pitch.tournament_id", selectedTournament),
       supabase.from("referees").select("id, full_name").eq("tournament_id", selectedTournament),
       supabase.from("runners").select("id, full_name").eq("tournament_id", selectedTournament),
     ]);

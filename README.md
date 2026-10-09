@@ -46,6 +46,19 @@ becomes the admin automatically. Everyone after that is a coach, team manager or
 The anon key is designed to be public: it is visible to anyone who opens the
 site. What protects the data is the Row Level Security rules in `supabase/reset.sql`.
 
+## Test Tools (admin → Test Tools tab)
+
+One-click demo data so you don't have to type everything in by hand:
+
+- **Load demo tournament**: 4–8 teams, each with a coach, team manager and players
+  (all can sign in, password `demo1234`), pitches, time slots, referees, runners,
+  a group and its round-robin matches
+- **Fill group scores / Fill playoff scores / Clear all scores**: simulate results
+- **Sign in as**: see the site as any demo coach, manager or player
+- **Delete demo data**: removes the demo tournament and demo logins only
+
+Delete the demo data before the real tournament goes live.
+
 ## User flows
 
 - **Coach / manager**: Register Your Team → sign up → register team → copy invite link from the dashboard
@@ -66,6 +79,7 @@ npm run dev
 |------|-----|
 | `supabase/reset.sql` | Wipes and rebuilds all tables. Safe to run repeatedly. |
 | `supabase/seed.sql` | Demo tournament, 4 teams, pitches, referees, runners, group matches. |
+| `supabase/test-tools.sql` | Test Tools functions only, for databases created before they existed. |
 | `supabase/security-fix.sql` | Role protection only, for databases created before it existed. |
 | `supabase/schema.sql` | Same structure as `reset.sql`, for a brand-new empty project. |
 
