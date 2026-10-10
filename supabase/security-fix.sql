@@ -1,3 +1,4 @@
+-- Superseded by hardening.sql (run that instead; it includes this and more).
 -- SECURITY FIX: roles are decided by the database, never by the browser.
 -- Safe to run more than once. Already included in reset.sql and schema.sql;
 -- run this on its own only if your database was set up before this fix.
@@ -70,4 +71,4 @@ create trigger protect_profile_role
 -- These helpers are only for the database itself, not the public web API.
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 revoke execute on function public.protect_profile_role() from public, anon, authenticated;
-revoke execute on function public.is_admin() from public, anon, authenticated;
+grant execute on function public.is_admin() to anon, authenticated;

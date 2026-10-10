@@ -18,7 +18,6 @@ interface Profile {
 interface Team {
   id: string;
   name: string;
-  invite_code: string;
   payment_status: string;
 }
 
@@ -59,7 +58,7 @@ export default function DashboardPage() {
         if (profileData.team_id) {
           const { data: teamData } = await supabase
             .from("teams")
-            .select("*")
+            .select("id, name, payment_status")
             .eq("id", profileData.team_id)
             .single();
 
@@ -85,11 +84,15 @@ export default function DashboardPage() {
     router.push("/");
   };
 
-  const copyInviteLink = () => {
+  const copyInviteLink = async () => {
     if (!team) return;
+    // Invite codes are only handed out to the team's own coach / manager.
+    const supabase = createClient();
+    const { data: code } = await supabase.rpc("my_invite_code");
+    if (!code) return;
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-    const link = `${window.location.origin}${basePath}/team/join/?code=${team.invite_code}`;
-    navigator.clipboard.writeText(link);
+    const link = `${window.location.origin}${basePath}/team/join/?code=${code}`;
+    await navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

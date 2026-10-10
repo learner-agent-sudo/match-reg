@@ -21,7 +21,7 @@ export default function PaymentUpload({ teamId, currentStatus, onStatusChange }:
     setError("");
 
     const supabase = createClient();
-    const fileExt = file.name.split(".").pop();
+    const fileExt = file.name.split(".").pop()?.toLowerCase();
     const filePath = `${teamId}/payment-proof.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
@@ -34,14 +34,18 @@ export default function PaymentUpload({ teamId, currentStatus, onStatusChange }:
       return;
     }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from("payment-proofs")
-      .getPublicUrl(filePath);
-
-    await supabase
+    // The bucket is private: store the file's path; the admin page opens it
+    // with a short-lived signed link.
+    const { error: updateError } = await supabase
       .from("teams")
-      .update({ payment_status: "submitted", payment_proof_url: publicUrl })
+      .update({ payment_status: "submitted", payment_proof_url: filePath })
       .eq("id", teamId);
+
+    if (updateError) {
+      setError(updateError.message);
+      setUploading(false);
+      return;
+    }
 
     onStatusChange("submitted");
     setUploading(false);
@@ -64,7 +68,7 @@ export default function PaymentUpload({ teamId, currentStatus, onStatusChange }:
       </p>
       <input
         type="file"
-        accept="image/*"
+        accept="image/png,image/jpeg,image/webp,image/heic,application/pdf"
         onChange={handleUpload}
         disabled={uploading}
         className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-500"

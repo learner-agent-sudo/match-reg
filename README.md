@@ -44,7 +44,10 @@ Open the site and click **Register Your Team**. The **very first account** creat
 becomes the admin automatically. Everyone after that is a coach, team manager or player.
 
 The anon key is designed to be public: it is visible to anyone who opens the
-site. What protects the data is the Row Level Security rules in `supabase/reset.sql`.
+site. What protects the data is the database rules in `supabase/hardening.sql`
+(included in `reset.sql`): teams can only be created or joined through checked
+database functions, only admins confirm payments, people only see their own
+team's details, and each team can only touch its own uploaded files.
 
 ## Test Tools (admin → Test Tools tab)
 
@@ -79,6 +82,7 @@ npm run dev
 |------|-----|
 | `supabase/reset.sql` | Wipes and rebuilds all tables. Safe to run repeatedly. |
 | `supabase/seed.sql` | Demo tournament, 4 teams, pitches, referees, runners, group matches. |
+| `supabase/hardening.sql` | Security rules (who can see/change what, upload limits). Already inside reset.sql; run on its own for older databases. |
 | `supabase/test-tools.sql` | Test Tools functions only, for databases created before they existed. |
 | `supabase/security-fix.sql` | Role protection only, for databases created before it existed. |
 | `supabase/schema.sql` | Same structure as `reset.sql`, for a brand-new empty project. |

@@ -52,21 +52,22 @@ export default function TeamRegisterPage() {
       return;
     }
 
-    const { data: team, error: teamError } = await supabase
-      .from("teams")
-      .insert({ name: teamName, tournament_id: selectedTournament })
-      .select()
-      .single();
+    // The database checks the tournament is open and not full, and attaches
+    // the new team to this coach.
+    const { data: teamId, error: teamError } = await supabase.rpc("register_team", {
+      p_tournament: selectedTournament,
+      p_name: teamName,
+    });
 
-    if (teamError) {
-      setError(teamError.message);
+    if (teamError || !teamId) {
+      setError(teamError?.message ?? "Could not register the team.");
       setLoading(false);
       return;
     }
 
     if (logoFile) {
-      const fileExt = logoFile.name.split(".").pop();
-      const filePath = `${team.id}/logo.${fileExt}`;
+      const fileExt = logoFile.name.split(".").pop()?.toLowerCase();
+      const filePath = `${teamId}/logo.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("team-logos")
@@ -80,19 +81,8 @@ export default function TeamRegisterPage() {
         await supabase
           .from("teams")
           .update({ logo_url: publicUrl })
-          .eq("id", team.id);
+          .eq("id", teamId);
       }
-    }
-
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ team_id: team.id })
-      .eq("id", user.id);
-
-    if (profileError) {
-      setError(profileError.message);
-      setLoading(false);
-      return;
     }
 
     router.push("/dashboard");

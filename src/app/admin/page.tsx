@@ -7,7 +7,6 @@ interface Team {
   id: string;
   name: string;
   payment_status: string;
-  invite_code: string;
   tournament: { name: string };
 }
 
@@ -31,7 +30,7 @@ export default function AdminTeamsPage() {
 
       const { data: teamsData } = await supabase
         .from("teams")
-        .select("id, name, payment_status, invite_code, tournament:tournaments(name)");
+        .select("id, name, payment_status, tournament:tournaments(name)");
 
       if (teamsData) setTeams(teamsData as unknown as Team[]);
 
@@ -54,6 +53,21 @@ export default function AdminTeamsPage() {
     setTeams((prev) =>
       prev.map((t) => (t.id === teamId ? { ...t, payment_status: status } : t))
     );
+  };
+
+  // Payment proofs live in a private bucket; open them with a link that
+  // expires after 5 minutes.
+  const viewProof = async (teamId: string) => {
+    const supabase = createClient();
+    const { data: files } = await supabase.storage.from("payment-proofs").list(teamId);
+    if (!files || files.length === 0) {
+      alert("This team hasn't uploaded a payment proof yet.");
+      return;
+    }
+    const { data } = await supabase.storage
+      .from("payment-proofs")
+      .createSignedUrl(`${teamId}/${files[0].name}`, 300);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   };
 
   const filteredMembers = selectedTeam
@@ -80,6 +94,15 @@ export default function AdminTeamsPage() {
                   <p className="font-medium text-slate-200">{team.name}</p>
                   <p className="text-xs text-slate-500">{team.tournament?.name}</p>
                 </div>
+                <div className="flex items-center gap-2">
+                {team.payment_status !== "pending" && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); viewProof(team.id); }}
+                    className="text-xs px-2 py-1 rounded bg-slate-700 text-slate-200 hover:bg-slate-600"
+                  >
+                    View proof
+                  </button>
+                )}
                 <select
                   value={team.payment_status}
                   onChange={(e) => {
@@ -99,6 +122,7 @@ export default function AdminTeamsPage() {
                   <option value="submitted">Submitted</option>
                   <option value="confirmed">Confirmed</option>
                 </select>
+                </div>
               </div>
             </div>
           ))}

@@ -23,14 +23,10 @@ export default function JoinTeamForm() {
     async function fetchTeam() {
       if (!code) { setChecking(false); return; }
       const supabase = createClient();
-      const { data } = await supabase
-        .from("teams")
-        .select("name")
-        .eq("invite_code", code)
-        .single();
+      const { data } = await supabase.rpc("team_name_for_invite", { p_code: code });
 
       if (data) {
-        setTeamName(data.name);
+        setTeamName(data);
         setTeamFound(true);
       }
       setChecking(false);
@@ -58,29 +54,21 @@ export default function JoinTeamForm() {
       return;
     }
 
-    const { data: team } = await supabase
-      .from("teams")
-      .select("id")
-      .eq("invite_code", code)
-      .single();
-
-    if (!team || !authData.user) {
-      setError("Team not found or signup failed.");
+    if (!authData.user) {
+      setError("Sign up failed.");
       setLoading(false);
       return;
     }
 
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({
-        team_id: team.id,
-        jersey_number: jerseyNumber ? parseInt(jerseyNumber) : null,
-        emergency_contact: emergencyContact || null,
-      })
-      .eq("id", authData.user.id);
+    // The database checks the invite code and puts the player on that team.
+    const { error: joinError } = await supabase.rpc("join_team", {
+      p_code: code,
+      p_jersey: jerseyNumber ? parseInt(jerseyNumber) : null,
+      p_emergency: emergencyContact || null,
+    });
 
-    if (profileError) {
-      setError(profileError.message);
+    if (joinError) {
+      setError(joinError.message);
       setLoading(false);
       return;
     }

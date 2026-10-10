@@ -124,8 +124,8 @@ begin
 
   -- Teams with coach, team manager and players (all can log in)
   for i in 1..p_teams loop
-    insert into public.teams (tournament_id, name, invite_code, payment_status)
-    values (t_id, team_names[i], 'demo-team-' || i,
+    insert into public.teams (tournament_id, name, payment_status)
+    values (t_id, team_names[i],
             (array['confirmed','submitted','pending'])[1 + (i - 1) % 3])
     returning id into v_id;
     team_ids := team_ids || v_id;
